@@ -12,7 +12,6 @@ library(caret)
 library(AmesHousing)
 
 ames <- AmesHousing::make_ames()
-churn <- rsample::attrition
 
 # Config variables
 sample_rate <- .7
