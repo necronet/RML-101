@@ -2,6 +2,8 @@ library(recipes)
 library(ggplot2)
 library(rsample)
 library(forecast)
+library(tidyverse)
+library(caret)
 
 # Dataset dependencies
 library(AmesHousing)
@@ -56,7 +58,44 @@ ggplot(NULL, aes(x=Gr_Liv_Area, y=Sale_Price)) +
 #  geom_point(data=ames_imputed_mean[sample_indexes, ], color='blue') +
 #  geom_point(data=ames_imputed_knn[sample_indexes, ], color='red') + 
   geom_point(data=ames_imputed_bag[sample_indexes, ], color='yellow')
+  
+
+# Feature selection 
+caret::nearZeroVar(training_ames, saveMetrics= TRUE) %>% 
+  rownames_to_column() %>% 
+  filter(nzv)
+
+# Percent uniquenes, count unique values over size of dataset 
+100 * length(unique(training_ames$Street))/nrow(training_ames)
+# Freq ratio first most common / second most common
+nrow(filter(training_ames, Street=='Grvl'))/nrow(filter(training_ames, Street=='Grvl'))
 
 
+# Putting everything together
+
+blueprint <- recipe(Sale_Price ~ ., data=training_ames) %>% 
+              step_nzv(all_nominal()) %>%
+              step_integer(matches("Qual|Cond|QC|Qu")) %>%
+              step_center(all_numeric(), -all_outcomes()) %>%
+              step_scale(all_numeric(), -all_outcomes()) %>%
+              step_dummy(all_nominal(), -all_outcomes(), one_hot = TRUE)
+
+cv <- trainControl(
+  method = "repeatedcv", 
+  number = 10, 
+  repeats = 5,
+  verboseIter = TRUE
+)
+
+hyper_grid <- expand.grid(k = seq(2, 25, by = 1))
+knn_fit <- train(
+  blueprint, 
+  data = training_ames, 
+  method = "knn", 
+  trControl = cv, 
+  tuneGrid = hyper_grid,
+  metric = "RMSE"
+)
 
 
+ggplot(knn_fit)
