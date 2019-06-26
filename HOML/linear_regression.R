@@ -6,6 +6,7 @@ library(AmesHousing)
 library(rsample)
 library(broom)
 library(gridExtra)
+library(vip)
 
 set.seed(11052019)
 
@@ -154,3 +155,7 @@ cv_model_pls$bestTune
 
 # plot cross-validated RMSE
 ggplot(cv_model_pls)
+
+
+
+vip(cv_model_pls, num_features = 20, method = "model")
