@@ -3,6 +3,7 @@ library(ggplot2)
 library(rsample)
 library(recipes)
 library(caret) 
+library(tibble) 
 library(dslabs)
 library(AmesHousing)
 
@@ -51,6 +52,7 @@ ggplot(knn_grid)
 mnist <- dslabs::read_mnist()
 names(mnist)
 
+set.seed(11052019)
 index <- sample(nrow(mnist$train$images), size = 10000)
 mnist_x <- mnist$train$images[index, ]
 mnist_y <- factor(mnist$train$labels[index])
@@ -90,10 +92,51 @@ knn_mnist <- train(
 
 ggplot(knn_mnist)
 
+cm <- confusionMatrix(knn_mnist$pred$pred, knn_mnist$pred$obs)
+cm$byClass[, c(1:2, 11)]
+vi <- varImp(knn_mnist)
 
 
+imp <- vi$importance %>%
+  rownames_to_column(var = "feature") %>%
+  gather(response, imp, -feature) %>%
+  group_by(feature) %>%
+  summarize(imp = median(imp))
+
+# create tibble for all edge pixels
+edges <- tibble(
+  feature = paste0("V", nzv),
+  imp = 0
+)
+
+# combine and plot
+imp <- rbind(imp, edges) %>%
+  mutate(ID  = as.numeric(str_extract(feature, "\\d+"))) %>%
+  arrange(ID)
+image(matrix(imp$imp, 28, 28), col = gray(seq(0, 1, 0.05)))
 
 
+good <- knn_mnist$pred %>%
+  filter(pred == obs) %>%
+  sample_n(4)
 
+# get a few inaccurate predictions
+bad <- knn_mnist$pred %>%
+  filter(pred != obs) %>%
+  slice(188:191)
 
+combine <- bind_rows(good, bad)
 
+# get original feature set with all pixel features
+set.seed(11052019)
+index <- sample(nrow(mnist$train$images), 10000)
+X <- mnist$train$images[index,]
+
+# plot 
+par(mfrow = c(4, 2), mar=c(1, 1, 1, 1))
+layout(matrix(seq_len(nrow(combine)), 4, 2, byrow = FALSE))
+for(i in seq_len(nrow(combine))) {
+  image(matrix(X[combine$rowIndex[i],], 28, 28)[, 28:1], 
+        main = paste("Actual:", combine$obs[i], "  ", "Predicted:", combine$pred[i]),
+        xaxt="n", yaxt="n") 
+}
