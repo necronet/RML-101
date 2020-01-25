@@ -131,3 +131,35 @@ cv_eval_rf <- cv_prep_rf %>%
 
 cv_eval_rf$validate_mae
 mean(cv_eval_rf$validate_mae)
+
+cv_tune <- cv_data %>% 
+  expand_grid(mtry = 2:5) 
+
+cv_model_tunerf <- cv_tune %>% mutate(model = map2(.x = train, .y = mtry, ~ranger(formula = lifeExp~., 
+                                                     data = .x, mtry = .y, 
+                                                     num.trees = 100, seed = 42)))
+
+
+cv_prep_tunerf <- cv_model_tunerf %>% 
+  mutate(validate_predicted = map2(.x = model, .y = validate, ~predict(.x, .y)$predictions),
+         validate_actual = map(validate, ~.x$lifeExp))
+
+# Calculate validate MAE for each fold and mtry combination
+cv_eval_tunerf <- cv_prep_tunerf %>% 
+  mutate(validate_mae = map2_dbl(.x = validate_actual, .y = validate_predicted, ~mae(actual = .x, predicted = .y)))
+
+# Calculate the mean validate_mae for each mtry used  
+cv_eval_tunerf %>% 
+  group_by(mtry) %>% 
+  summarise(mean_mae = mean(validate_mae))
+
+
+# Building the final model
+
+best_model <- ranger(formula = lifeExp~., data = training_data, mtry = 4, num.trees = 100, seed = 42)
+test_actual <- testing_data$lifeExp
+
+test_predicted <- predict(best_model, testing_data)$predictions
+mae(test_actual, test_predicted)
+
+
