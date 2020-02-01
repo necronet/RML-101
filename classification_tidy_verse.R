@@ -1,5 +1,6 @@
 library(rsample)
 library(Metrics)
+library(ranger)
 
 data_split <- initial_split(attrition, prop = .75)
 
@@ -69,3 +70,56 @@ cv_perf_recall$validate_recall
 
 # Calculate the average of the validate_recall column
 mean(cv_perf_recall$validate_recall)
+
+# Prepare for tuning your cross validation folds by varying mtry
+cv_tune <- cv_data %>% expand_grid(mtry = c(2, 4, 8, 16)) 
+
+# Build a cross validation model for each fold & mtry combination
+cv_models_rf <- cv_tune %>% 
+  mutate(model = map2(train, mtry, ~ranger(formula = Attrition~., 
+                                        data = .x, mtry = .y,
+                                        num.trees = 100, seed = 42)))
+
+cv_prep_rf <- cv_models_rf %>% 
+  mutate(
+    # Prepare binary vector of actual Attrition values in validate
+    validate_actual = map(validate, ~.x$Attrition == "Yes"),
+    # Prepare binary vector of predicted Attrition values for validate
+    validate_predicted = map2(.x = model, .y = validate, ~predict(.x, .y, type = "response")$predictions == "Yes")
+  )
+
+# Calculate the validate recall for each cross validation fold
+cv_perf_recall <- cv_prep_rf %>% 
+  mutate(recall = map2_dbl(.x = validate_actual, .y = validate_predicted, ~recall(actual = .x, predicted = .y)))
+
+# Calculate the mean recall for each mtry used  
+cv_perf_recall %>% 
+  group_by(mtry) %>% 
+  summarise(mean_recall = mean(recall))
+
+
+# Build the logistic regression model using all training data
+best_model <- glm(formula = Attrition~., 
+                  data = training_data, family = "binomial")
+
+
+# Prepare binary vector of actual Attrition values for testing_data
+test_actual <- testing_data$Attrition == "Yes"
+
+# Prepare binary vector of predicted Attrition values for testing_data
+test_predicted <- predict(best_model, testing_data, type = "response") > 0.5
+
+
+# Compare the actual & predicted performance visually using a table
+table(test_actual, test_predicted)
+
+# Calculate the test accuracy
+accuracy(test_actual, test_predicted)
+
+# Calculate the test precision
+precision(test_actual, test_predicted)
+
+# Calculate the test recall
+recall(test_actual, test_predicted)
+
+
