@@ -2,6 +2,7 @@
 library(dplyr)
 library(gutenbergr)
 library(forcats)
+library(tidytext)
 library(stringr)
 
 physics <- gutenberg_download(c(37729, 14725, 13476, 30155), 
