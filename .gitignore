@@ -1,5 +1,7 @@
+# Session Data files
+*.RData
+
 .DS_Store
 .Rproj.user
 .Rhistory
-.RData
 .Ruserdata
