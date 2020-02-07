@@ -6,6 +6,9 @@ library(quanteda)
 library(tidyr)
 library(Matrix)
 library(janeaustenr)
+library(purrr)
+library(devtools)
+library(tm.plugin.webmining)
 
 data("AssociatedPress", package = "topicmodels")
 
@@ -72,6 +75,26 @@ austen_dtm <- austen_books() %>%
   count(book, word) %>%
   cast_dtm(book, word, n)
 
+# Loading ACQ https://www.rdocumentation.org/packages/tm/versions/0.7-7/topics/acq
+data("acq")
+
+glimpse(acq[[1]])
+
+acq_td <- tidy(acq)
+
+
+acq_tokens <- acq_td %>%
+  select(-places) %>%
+  unnest_tokens(word, text) %>%
+  anti_join(stop_words, by = "word")
+
+acq_tokens %>% count(word, sort = TRUE)
+
+# tf-idf
+acq_tokens %>%
+  count(id, word) %>%
+  bind_tf_idf(word, id, n) %>%
+  arrange(desc(tf_idf))
 
 
 
