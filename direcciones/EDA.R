@@ -13,9 +13,18 @@ library(tidyr)
 FILE_ADDRESS_1 <- "direcciones/data/clientes_rutas.csv"
 TARGET_ADDRESS_FILE = "direcciones/data/address_filtered.csv"
 
+str_replace_all("ENTRADA 1C. ABAJO, 3C. NORTE, 40VRS. ABAJO" , "\\d[cC]", "NC")
+
 preprocess_original_file <- function(source_file = FILE_ADDRESS_1, target_file = TARGET_ADDRESS_FILE) {
   #Read oroginal file
   readr::read_csv("direcciones/data/clientes_rutas.csv") %>% 
+    #treatment to remove commas and dots
+    mutate_all(str_replace_all, pattern="[\\.,]", replacement = " ") %>%
+    #remove white space on 1 c to 1c
+    mutate_all(str_replace_all, pattern="(\\d)(\\s+)[cC]\\s+", replacement = "\\1") %>%
+    #mutate_all(str_replace_all, pattern="\\d/\\d\\s+", replacement = "NC") %>%
+    # replace any \dC (like 1C 2c 3c) with a general NC
+    mutate_all(str_replace_all, pattern="\\d[cC]\\s+", replacement = "NC ") %>%
     #Select only features that are interesting
     select(Department, Municipality, Address1, Address2, Neighborhood) %>% 
     # filter out NA values for department or municipality
@@ -24,7 +33,6 @@ preprocess_original_file <- function(source_file = FILE_ADDRESS_1, target_file =
     mutate_all(str_to_upper) %T>%
     write_csv(target_file) 
 }
-
 
 address_filtered <- preprocess_original_file(FILE_ADDRESS_1, TARGET_ADDRESS_FILE) 
 
