@@ -79,8 +79,22 @@ addresses(address_filtered) %>% group_by(Department) %>% count(Department, word)
                       ggtitle("Proportion of address in each department v Managua(Capital)")
 
 
+department_words <- addresses(address_filtered) %>% count(Department, word, sort = TRUE)
+
+total_words_department <- department_words %>% group_by(Department) %>%
+                                summarise(total = sum(n))
+
+department_words <- left_join(department_words, total_words_department) %>% top_n(10, n)
 
 
+freq_by_rank <- department_words %>% 
+  mutate(rank = row_number(), freq_term = n/total)
+
+freq_by_rank %>% filter(total > 50) %>%
+  ggplot(aes(rank, freq_term, color = Department)) + 
+  geom_line(size = .5, alpha = 0.8) + 
+  scale_x_log10() +
+  scale_y_log10() + xlab("Rank") + ylab("Frequency term") + ggtitle("Zipf's law on Nicaragua address")
 
   
   
