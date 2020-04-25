@@ -60,10 +60,15 @@ address_data %>% get_freq_by_rank(50) %>%
   facet_wrap(~Department, scales="free") + scale_x_reordered() + coord_flip() + xlab("Word per department") + ylab("TF-IDF")
 
 
+address_data <- preprocess_original_file()
 
-
-
-preprocess_original_file() %>% address_ngram_count(ngram = 3)
+address_data %>% address_ngram(ngram = 2) %>% unite(bigram, word1, word2, sep=" ") %>% 
+                 count(Department, bigram) %>% bind_tf_idf(bigram, Department, n) %>% arrange(n) %>%
+                 filter(Department %in% c("MANAGUA","LEON","ESTELI","MASAYA","GRANADA", "CHINANDEGA")) %>%
+                 group_by(Department) %>% top_n(15) %>%
+                 ggplot(aes(reorder_within(bigram, tf_idf,Department), tf_idf, fill = Department)) + 
+                 geom_col(show.legend = FALSE) +scale_x_reordered() +
+                 facet_wrap(~Department, scales="free") + coord_flip()
 
 
 
