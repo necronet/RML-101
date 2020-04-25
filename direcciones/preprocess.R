@@ -27,13 +27,13 @@ preprocess_original_file <- function(source_file = FILE_ADDRESS_1, target_file =
 }
 
 # TODO: missing documentation
-get_address <- function(address_filtered) {
+get_address <- function(address_filtered, token = "words", ...) {
   # Having the address1 and address2 together for unigram count
   address_filtered %>% mutate(Address = paste(Address1, str_replace_na(Address2, ""))) %>% 
     # Select only the newly created Address column and department
     select(Department, Address) %>% 
     # Getting all the words for each Address
-    unnest_tokens(word, Address)  
+    unnest_tokens(word, Address, token = token, ...)  
 }
 
 # TODO: MISSING roxygen
@@ -49,4 +49,16 @@ get_freq_by_rank <- function (addresses, top_n = 5) {
     top_n(top_n, n) %>% 
     mutate(rank = row_number(), freq_term = n/total)
 }
+
+## Tokenization of Address into n-grams
+
+address_ngram_count <- function(addresses = preprocess_original_file(), ngram = 2) {
+  stop_words_es <- stopwords::stopwords(language = "es")
+  address_data_ngrams <- addresses %>% get_address("ngrams", n = ngram) 
+  #address_data_ngrams %>% count(word, sort = TRUE)
+  address_data_ngrams %>% separate(word, sprintf("word%s",seq(1: ngram))) %>% 
+    filter_at(vars(starts_with("word")), all_vars(!. %in% stop_words_es )) %>%
+    group_by_at(vars(starts_with("word"))) %>% count(sort=TRUE)
+}
+
 

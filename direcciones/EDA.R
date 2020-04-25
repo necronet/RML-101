@@ -7,7 +7,7 @@ library(forcats)
 library(tidyr)
 source('./direcciones/preprocess.R')
 
-address_data <- preprocess_original_file() %>% get_address
+address_data <- preprocess_original_file() %>% get_address()
 
 # Graph related to frequency of words per department
 address_data %>% group_by(Department, word) %>% 
@@ -51,13 +51,20 @@ address_data %>% get_freq_by_rank(50) %>% filter(total > 50) %>%
   scale_x_log10() +
   scale_y_log10() + xlab("Rank") + ylab("Frequency term") + ggtitle("Zipf's law on Nicaragua address")
 
-#
+# What each address revelant word per department
 
 address_data %>% get_freq_by_rank(50) %>% 
   bind_tf_idf(word, Department, n) %>% select(-total) %>% arrange(desc(tf_idf)) %>% group_by(Department) %>% 
   filter(Department %in% c("MANAGUA","LEON","ESTELI","MASAYA","GRANADA", "CHINANDEGA")) %>% top_n(15) %>% ungroup() %>%
   ggplot(aes(reorder_within(word, tf_idf, Department), tf_idf, fill=Department)) + geom_col(show.legend = FALSE) +
   facet_wrap(~Department, scales="free") + scale_x_reordered() + coord_flip() + xlab("Word per department") + ylab("TF-IDF")
+
+
+
+
+
+preprocess_original_file() %>% address_ngram_count(ngram = 3)
+
 
 
 
