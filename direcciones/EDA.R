@@ -13,7 +13,7 @@ library(tidyr)
 FILE_ADDRESS_1 <- "direcciones/data/clientes_rutas.csv"
 TARGET_ADDRESS_FILE = "direcciones/data/address_filtered.csv"
 
-str_replace_all("ENTRADA 1C. ABAJO, 3C. NORTE, 40VRS. ABAJO" , "\\d[cC]", "NC")
+str_replace_all("ENTRADA 1/2C ABAJO, 3C NORTE, 40VRS ABAJO" , "\\d/\\d[cC]\\s+", "NC ")
 
 preprocess_original_file <- function(source_file = FILE_ADDRESS_1, target_file = TARGET_ADDRESS_FILE) {
   #Read oroginal file
@@ -22,7 +22,7 @@ preprocess_original_file <- function(source_file = FILE_ADDRESS_1, target_file =
     mutate_all(str_replace_all, pattern="[\\.,]", replacement = " ") %>%
     #remove white space on 1 c to 1c
     mutate_all(str_replace_all, pattern="(\\d)(\\s+)[cC]\\s+", replacement = "\\1") %>%
-    #mutate_all(str_replace_all, pattern="\\d/\\d\\s+", replacement = "NC") %>%
+    mutate_all(str_replace_all, pattern="\\d/\\d[cC]\\s+", replacement = "NC ") %>%
     # replace any \dC (like 1C 2c 3c) with a general NC
     mutate_all(str_replace_all, pattern="\\d[cC]\\s+", replacement = "NC ") %>%
     #Select only features that are interesting
@@ -45,8 +45,10 @@ addresses <- function(address_filtered) {
     unnest_tokens(word, Address)  
 }
 
+address_filtered %>% addresses %>% group_by(Department) %>% count(Department, word) %>% top_n(1) %>% arrange(-n)
+
 # Graph related to frequency of words per department
-addresses(address_filtered) %>% group_by(Department, word) %>% 
+address_filtered%>% addresses %>% group_by(Department, word) %>% 
                      # counting frequency per word per department, sort med desc, and filter only those with more than 50 in frequency
                      summarise(n = n()) %>% top_n(10) %>% arrange(-n) %>% 
                      ungroup() %>% filter(n > 10) %>%
@@ -62,10 +64,10 @@ addresses(address_filtered) %>% group_by(Department, word) %>%
 
 
 # A relationship graph between words proportion and the capital
-addresses(address_filtered) %>% group_by(Department) %>% count(Department, word) %>% 
+address_filtered %>% addresses %>% group_by(Department) %>% count(Department, word) %>% 
                                 mutate(proportion = n / sum(n)) %>% select(-n) %>% 
                                 pivot_wider(names_from = "Department", values_from = "proportion") %>%
-                                pivot_longer(cols = c(`LEON`,`MASAYA`,`ESTELI`,`GRANADA`), names_to = "Department",values_to="proportion") %>% 
+                                pivot_longer(cols = c(`LEON`,`MASAYA`,`ESTELI`,`GRANADA`, `CHINANDEGA`, `RIVAS`), names_to = "Department",values_to="proportion") %>% 
                       ggplot(aes(x = proportion, y = `MANAGUA`, color = abs(`MANAGUA` - proportion))) +
                       geom_abline(color = "gray30", lty = 3) +
                       geom_jitter(alpha = 0.25, size = 2, width = 0.3, height = 0.3) +
@@ -79,26 +81,40 @@ addresses(address_filtered) %>% group_by(Department) %>% count(Department, word)
                       ggtitle("Proportion of address in each department v Managua(Capital)")
 
 
-department_words <- addresses(address_filtered) %>% count(Department, word, sort = TRUE)
 
-total_words_department <- department_words %>% group_by(Department) %>%
+deparment_word_count <- function (address_words) {
+  address_words %>% count(Department, word, sort = TRUE)
+}
+
+
+total_words_department <- address_filtered %>% addresses %>% deparment_word_count %>% group_by(Department) %>%
                                 summarise(total = sum(n))
 
-department_words <- left_join(department_words, total_words_department) %>% top_n(10, n)
+department_words <- left_join(address_filtered %>% addresses %>% deparment_word_count, total_words_department) %>% top_n(10, n)
 
 
 freq_by_rank <- department_words %>% 
   mutate(rank = row_number(), freq_term = n/total)
 
+
+# Zipf's law proof
 freq_by_rank %>% filter(total > 50) %>%
   ggplot(aes(rank, freq_term, color = Department)) + 
+  geom_abline(intercept = -1.0424 , slope = -0.5478, color = "gray50", linetype = 2) +
   geom_line(size = .5, alpha = 0.8) + 
   scale_x_log10() +
   scale_y_log10() + xlab("Rank") + ylab("Frequency term") + ggtitle("Zipf's law on Nicaragua address")
 
+#lm(log10(freq_term) ~ log10(rank), data = subset)  
+
+left_join(address_filtered %>% addresses %>% deparment_word_count, total_words_department) %>% 
+  bind_tf_idf(word, Department, n) %>% select(-total) %>% arrange(desc(tf_idf)) %>% group_by(Department) %>% 
+  filter(Department %in% c("MANAGUA","LEON","ESTELI","MASAYA","GRANADA")) %>% top_n(15) %>% ungroup() %>%
+  ggplot(aes(reorder_within(word, tf_idf, Department), tf_idf, fill=Department)) + geom_col(show.legend = FALSE) +
+  facet_wrap(~Department, scales="free") + scale_x_reordered() + coord_flip() + xlab("Word per department") + ylab("TF-IDF")
+
+
+
+
+
   
-  
-
-
-
-
