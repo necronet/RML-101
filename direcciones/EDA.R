@@ -5,6 +5,8 @@ library(magrittr)
 library(ggplot2)
 library(forcats)
 library(tidyr)
+library(igraph)
+library(ggraph)
 source('./direcciones/preprocess.R')
 
 address_data <- preprocess_original_file() %>% get_address()
@@ -69,6 +71,26 @@ address_data %>% address_ngram(ngram = 2) %>% unite(bigram, word1, word2, sep=" 
                  ggplot(aes(reorder_within(bigram, tf_idf,Department), tf_idf, fill = Department)) + 
                  geom_col(show.legend = FALSE) +scale_x_reordered() +
                  facet_wrap(~Department, scales="free") + coord_flip()
+
+
+address_data %>% address_ngram(ngram = 2) %>% count(Department, word1, word2) %>% filter(n > 20) %>% 
+  mutate(Department = as.factor(Department)) %>%
+  graph_from_data_frame(directed = TRUE) %>%
+  ggraph(layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+address_data %>% address_ngram_count(ngram = 2) %>% filter(n > 20) %>% graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) + theme_void()
+
+
 
 
 

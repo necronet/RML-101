@@ -61,4 +61,12 @@ address_ngram_count <- function(addresses = preprocess_original_file(), ngram = 
     group_by_at(vars(starts_with("word"))) %>% count(sort=TRUE)
 }
 
+address_ngram <- function(addresses = preprocess_original_file(), ngram = 2) {
+  stop_words_es <- stopwords::stopwords(language = "es")
+  address_data_ngrams <- addresses %>% get_address("ngrams", n = ngram) 
+  #address_data_ngrams %>% count(word, sort = TRUE)
+  address_data_ngrams %>% separate(word, sprintf("word%s",seq(1: ngram))) %>% 
+    filter_at(vars(starts_with("word")), all_vars(!. %in% stop_words_es )) 
+}
+
 
