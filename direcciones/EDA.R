@@ -7,6 +7,7 @@ library(forcats)
 library(tidyr)
 library(igraph)
 library(ggraph)
+
 source('./direcciones/preprocess.R')
 
 address_data <- preprocess_original_file() %>% get_address()
@@ -91,10 +92,3 @@ address_data %>% address_ngram_count(ngram = 2) %>% filter(n > 20) %>% graph_fro
   geom_node_text(aes(label = name), vjust = 1, hjust = 1) + theme_void()
 
 
-
-
-
-
-
-
-  

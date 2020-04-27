@@ -1,5 +1,7 @@
 library(readr)
 library(dplyr)
+library(magrittr)
+library(tidytext)
 library(stringr)
 # Constant section
 
@@ -27,11 +29,11 @@ preprocess_original_file <- function(source_file = FILE_ADDRESS_1, target_file =
 }
 
 # TODO: missing documentation
-get_address <- function(address_filtered, token = "words", ...) {
+get_address <- function(addresses, token = "words", ...) {
   # Having the address1 and address2 together for unigram count
-  address_filtered %>% mutate(Address = paste(Address1, str_replace_na(Address2, ""))) %>% 
+  addresses %>% mutate(Address = paste(Address1, str_replace_na(Address2, "")), doc_id = row_number()) %>% 
     # Select only the newly created Address column and department
-    select(Department, Address) %>% 
+    select(Department, Address, doc_id) %>% 
     # Getting all the words for each Address
     unnest_tokens(word, Address, token = token, ...)  
 }
