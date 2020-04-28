@@ -1,7 +1,7 @@
 # Helper packages
 library(dplyr)
 library(caret)
-library(ggplot)
+library(ggplot2)
 library(AmesHousing)
 library(rsample)
 library(broom)
