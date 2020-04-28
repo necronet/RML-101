@@ -35,16 +35,77 @@ major_topics <- tibble(
     mutate(word = SnowballC::wordStem(word)))
 
 
-(congress_dtm <- congress_tokens %>%
-    # get count of each token in each document
+(congress_dtm <- congress_tokens %>%    # get count of each token in each document
     count(ID, word) %>%
     # create a document-term matrix with all features and tf weighting
     cast_dtm(document = ID, term = word, value = n))
 
+congress_tokens %>%
+  # get count of each token in each document
+  count(ID, word) %>%
+  # create a document-term matrix with all features and tf-idf weighting
+  cast_dtm(document = ID, term = word, value = n,
+           weighting = tm::weightTfIdf)
+
+removeSparseTerms(congress_dtm, sparse = 0.99) %>% as.matrix()
+removeSparseTerms(congress_dtm, sparse = 0.95) %>% as.matrix()
+
 str(congress_dtm)
 
-congress_dtm$dimnames
+congress_dtm$dimnames$Docs
+congress_dtm$dimnames$Terms
+
+str(congress_dtm[1,])
+str(congress_dtm[,1])
+
+(congress_dtm <- removeSparseTerms(congress_dtm, sparse = .99))
 
 
+congress_rf <- train(x = as.matrix(congress_dtm),
+                     y = factor(congress$major),
+                     method = "ranger",
+                     num.trees = 200,
+                     trControl = trainControl(method = "oob", verboseIter = TRUE))
 
 
+(congress_slice <- slice(congress, as.numeric(congress_dtm$dimnames$Docs)))
+congress_rf_10 <- train(x = as.matrix(congress_dtm),
+                        y = factor(congress_slice$major),
+                        method = "ranger",
+                        num.trees = 10,
+                        importance = "impurity",
+                        trControl = trainControl(method = "oob", verboseIter = TRUE))
+
+congress_rf_10$finalModel %>%
+  # extract variable importance metrics
+  ranger::importance() %>%
+  # convert to a data frame
+  enframe(name = "variable", value = "varimp") %>%
+  top_n(n = 20, wt = varimp) %>%
+  # plot the metrics
+  ggplot(aes(x = fct_reorder(variable, varimp), y = varimp)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "Token",
+       y = "Variable importance (higher is more important)")
+
+congress_rf_200 <- train(x = as.matrix(congress_dtm),
+                         y = factor(congress_slice$major),
+                         method = "ranger",
+                         num.trees = 200,
+                         importance = "impurity",
+                         trControl = trainControl(method = "oob"))
+
+
+congress_rf_200$finalModel %>%
+  # extract variable importance metrics
+  ranger::importance() %>%
+  # convert to a data frame
+  enframe(name = "variable", value = "varimp") %>%
+  top_n(n = 20, wt = varimp) %>%
+  # plot the metrics
+  ggplot(aes(x = fct_reorder(variable, varimp), y = varimp)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "Token",
+       y = "Variable importance (higher is more important)")
