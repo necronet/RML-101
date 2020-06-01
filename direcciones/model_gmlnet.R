@@ -9,6 +9,10 @@ library(R.oo)
 registerDoMC(cores = detectCores())
 source('./direcciones/preprocess.R')
 
+classes <- c("MANAGUA","LEON")
+
+address_data <- preprocess_original_file()
+
 generate_binomial_model <- function(address_data, classes, freq_threshold = 5)  {
   REQUIRED_CLASSES = 2
   if (length(classes) != REQUIRED_CLASSES) {
@@ -36,13 +40,12 @@ generate_binomial_model <- function(address_data, classes, freq_threshold = 5)  
 }
 
 binomial_model <- (address_data %>% generate_binomial_model(classes = c("MANAGUA", "LEON")))
+plot(binomial_model$model)
+plot(binomial_model$model$glmnet.fit)
 
-plot(model)
-plot(model$glmnet.fit)
-
-coefs <- model$glmnet.fit %>%
+coefs <- binomial_model$model$glmnet.fit %>%
   tidy() %>%
-  filter(lambda == model$lambda.1se)
+  filter(lambda == binomial_model$model$lambda.1se)
 
 coefs %>%
   group_by(estimate > 0) %>%
@@ -56,13 +59,11 @@ coefs %>%
     title = "Most and least likely word tobe classified as in Managua"
   )
 
-plot(model$glmnet.fit, xvar = "dev", label=TRUE)
-plot(model)
+plot(binomial_model$model$glmnet.fit, xvar = "dev", label=TRUE)
 
 intercept <- coefs %>%
   filter(term == "(Intercept)") %>%
   pull(estimate)
-
 
 
 classifications <- address_data %>% filter(Department %in% c("MANAGUA", "LEON")) %>% get_address() %>%
