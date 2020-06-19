@@ -8,10 +8,9 @@ library(rsample)
 library(glmnet)
 library(stringr)
 library(tidyr)
+library(DMwR)
 
 pokemon_data <- readr::read_csv("pokemon/pokemon.csv")
-
-
 
 map_fn <- function(x) {
   length(str_split(x, ",", simplify = TRUE))
@@ -21,17 +20,26 @@ get_maximum_abilities <- function(pokemon_df) {
   pokemon_df %>% pull(abilities) %>% map_int(map_fn) %>% max()  
 }
 
+clean_ability <- function(ability) {
+  gsub("\\[|\\]|\\'","", ability)  
+}
+
 max_abilities <- pokemon_df %>% get_maximum_abilities()
 
-pokemon_df %>% separate('abilities', paste0("abilities",1:max_abilities), sep=',')
 
 pokemon_df <- pokemon_data %>% na.omit() %>%
-    mutate(is_legendary = factor(is_legendary), type1 = factor(type1), generation = factor(generation)) %>% 
-             select(-starts_with("against"))
+    mutate(abilities = clean_ability(abilities)) %>% 
+    separate('abilities', paste0("ability",1:max_abilities), sep=',') %>%
+    mutate(is_legendary = factor(is_legendary), 
+           type1 = factor(type1), generation = factor(generation)) %>% 
+    mutate_at(vars(starts_with("ability")), factor) %>%
+             select(-starts_with("against")) 
 
 skimr::skim(pokemon_df)
 
-pokemon_df %>% count(type_merged)
+pokemon_df %>% count(ability1, sort=T) %>% 
+                  ggplot(aes(fct_reorder(ability1, n), n)) + 
+                  geom_col() + coord_flip()
 
 pokemon_df %>% count(type1, is_legendary, sort = TRUE) %>% 
                  ggplot(aes(forcats::fct_reorder(type1, n), n, fill = is_legendary)) + 
@@ -61,12 +69,34 @@ pokemon_split <- initial_split(pokemon_design, strata = is.legendary)
 training_pokemon <- training(pokemon_split)
 testing_pokemon <- testing(pokemon_split)
 
-pokemon_design %>% count(is_legendary)
+smoted_training_pokemon <- SMOTE(is_legendary ~ ., as.data.frame(select(training_pokemon, -name)),perc.over = 1000, perc.under=300, k = 4)
 
-x <- data.matrix(training_pokemon %>% select(-name, is_legendary))
-y <- training_pokemon$is_legendary
+smoted_training_pokemon %>% ggplot(aes(x = height_m, y = weight_kg)) + 
+  geom_point(alpha = 0.6, aes(color = is_legendary)) + 
+  geom_smooth(formula = y ~ x)
+
+x <- data.matrix(smoted_training_pokemon %>% select(-is_legendary))
+y <- smoted_training_pokemon$is_legendary
 # Simply using glmp for classification no recipe or no workflow or tunnning just yet
 fit = cv.glmnet(x, y, family = "binomial")
+
+plot(fit)
+plot(fit$glmnet.fit)
+
+intercept <- coef(fit)[1,]
+fit_height_m <- coef(fit)[2,]
+fit_weight_m <- coef(fit)[3,]
+
+bind_cols(.pred = predict(fit, x,  type = "class", s = 'lambda.min'), smoted_training_pokemon) %>% 
+  mutate(correct = .pred == is_legendary) %>%
+  ggplot(aes(x = height_m, y = weight_kg, color = .pred, shape = correct)) + 
+  scale_shape_manual(values=c(4, 19)) +
+  geom_point(alpha = 0.8, size = 3)
+
+# Confusion matrix
+bind_cols(.pred = predict(fit, x,  type = "class", s = 'lambda.min'), smoted_training_pokemon) %>%
+  mutate(correct = case_when(.pred == is_legendary ~ 1, T ~ 0)) %>% select(is_legendary, .pred) %>% table()
+
 
 
 
