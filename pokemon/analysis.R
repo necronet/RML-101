@@ -9,6 +9,9 @@ library(glmnet)
 library(stringr)
 library(tidyr)
 library(DMwR)
+library(corrplot)
+library(GGally)
+
 
 pokemon_data <- readr::read_csv("pokemon/pokemon.csv")
 
@@ -24,8 +27,9 @@ clean_ability <- function(ability) {
   gsub("\\[|\\]|\\'","", ability)  
 }
 
-max_abilities <- pokemon_df %>% get_maximum_abilities()
+max_abilities <- pokemon_data %>% get_maximum_abilities()
 
+skimr::skim(pokemon_df)
 
 pokemon_df <- pokemon_data %>% na.omit() %>%
     mutate(abilities = clean_ability(abilities)) %>% 
@@ -35,7 +39,15 @@ pokemon_df <- pokemon_data %>% na.omit() %>%
     mutate_at(vars(starts_with("ability")), factor) %>%
              select(-starts_with("against")) 
 
-skimr::skim(pokemon_df)
+pokemon_data %>% na.omit() %>% 
+    select_if(~ is_double(.x) | is_integer(.x)) %>% 
+    select(-starts_with("against")) %>% cor %>% corrplot(method = "number")
+
+pokemon_data %>% na.omit() %>% 
+  select_if(~ is_double(.x) | is_integer(.x)) %>%
+  select(-starts_with("against")) %>% 
+  mutate(is_legendary = factor(is_legendary)) %>%
+  ggpairs(aes(color = is_legendary, alpha = 0.8))
 
 pokemon_df %>% count(ability1, sort=T) %>% 
                   ggplot(aes(fct_reorder(ability1, n), n)) + 
@@ -53,7 +65,7 @@ pokemon_df %>% ggplot(aes(x = height_m, y = weight_kg, label = name)) +
                           hjust=0, vjust=0) + 
               geom_smooth(formula = y ~ x)
 
-pokemon_df %>% na.omit() %>% group_by(type1) %>% 
+pokemon_df %>% group_by(type1) %>% 
             summarise(n = n(), weight_avg = mean(weight_kg), 
                                height_avg = mean(height_m)) %>%
   ggplot(aes(x = height_avg, y = weight_avg, size = n)) + 
@@ -62,15 +74,21 @@ pokemon_df %>% na.omit() %>% group_by(type1) %>%
 
 
 # Let's classify legendary from non legendary for binary classification
-pokemon_design <- pokemon_df %>% select(name, height_m, weight_kg, is_legendary, type1)
+pokemon_design <- pokemon_df %>% select(-starts_with("ability"))
 
-pokemon_split <- initial_split(pokemon_design, strata = is.legendary)
+pokemon_split <- initial_split(pokemon_design,prop = 0.6)
 # See what I did there? hahaha
 training_pokemon <- training(pokemon_split)
 testing_pokemon <- testing(pokemon_split)
 
-smoted_training_pokemon <- SMOTE(is_legendary ~ ., as.data.frame(select(training_pokemon, -name)),perc.over = 1000, perc.under=300, k = 4)
+training_pokemon %>% count(is_legendary)
 
+smoted_training_pokemon <- SMOTE(is_legendary ~ ., as.data.frame(
+                                  select_if(training_pokemon, ~is_numeric(.x))),
+                                  perc.over = 500, k = 2) %>% na.omit() 
+
+smoted_training_pokemon %>% count(is_legendary)
+ 
 smoted_training_pokemon %>% ggplot(aes(x = height_m, y = weight_kg)) + 
   geom_point(alpha = 0.6, aes(color = is_legendary)) + 
   geom_smooth(formula = y ~ x)
@@ -87,15 +105,20 @@ intercept <- coef(fit)[1,]
 fit_height_m <- coef(fit)[2,]
 fit_weight_m <- coef(fit)[3,]
 
-bind_cols(.pred = predict(fit, x,  type = "class", s = 'lambda.min'), smoted_training_pokemon) %>% 
+
+pred = predict(fit, data.matrix(testing_pokemon %>%  select_if(is_numeric) %>% select(-is_legendary)),  
+        type = "class", s = 'lambda.min' )
+
+bind_cols(.pred = pred, testing_pokemon) %>% 
   mutate(correct = .pred == is_legendary) %>%
   ggplot(aes(x = height_m, y = weight_kg, color = .pred, shape = correct)) + 
   scale_shape_manual(values=c(4, 19)) +
   geom_point(alpha = 0.8, size = 3)
 
 # Confusion matrix
-bind_cols(.pred = predict(fit, x,  type = "class", s = 'lambda.min'), smoted_training_pokemon) %>%
-  mutate(correct = case_when(.pred == is_legendary ~ 1, T ~ 0)) %>% select(is_legendary, .pred) %>% table()
+bind_cols(.pred = pred, testing_pokemon) %>%
+  mutate(correct = case_when(.pred == is_legendary ~ 1, T ~ 0)) %>% 
+  select(is_legendary, .pred) %>% table() 
 
 
 
