@@ -4,8 +4,9 @@ library(e1071)
 
 setWavPlayer('/usr/bin/afplay')
 
-target_path = "/Users/joseayerdis/Documents/repos/free-spoken-digit-dataset/recordings/" 
-wave <- readWave(paste0(target_path,"0_jackson_0.wav"))
+#target_path = "/Users/joseayerdis/Documents/repos/free-spoken-digit-dataset/recordings/" 
+target_path = "/Users/joseayerdis/Downloads/audio_train/" 
+wave <- readWave(paste0(target_path,"a439d172.wav"))
 play(wave)
 
 
@@ -14,62 +15,51 @@ s <- wave@left/2^(wave@bit -1)
 timeArray <- (seq_len(length(wave))-1) / wave@samp.rate
 plot(timeArray, s, type='l', col='black', xlab="Time (ms)", ylab='Amplitude')
 
-
 print(paste0(length(wave)/wave@samp.rate," secs"))
-
 
 normalize_audio <- wave@left/max(abs(wave@left))
 plot(timeArray, normalize_audio, type='l', col='blue', xlab="Time (ms)", ylab='Amplitude')
 
 #padarray(1:10,c(0,2), "symmetric")
 
-chunk_size = 2048
-sample_rate = wave@samp.rate
+chunk_size <- 2048
+sample_rate <- wave@samp.rate
 hop_size <- 15
 
-audio = padarray(wave@left, c(0, chunk_size / 2), 'symmetric')
+audio = padarray(normalize_audio, c(0, chunk_size / 2), 'symmetric')
 frame_len = round(sample_rate * hop_size / 1000)
 frame_num = as.integer( ((length(audio) - chunk_size) / frame_len)) + 1
-
-frames = matrix(0L, ncol = frame_num, nrow = chunk_size)
+frames = matrix(0L, ncol = chunk_size, nrow = frame_num)
 dim(frames)
-length(audio)
-merge(frames, 1:65, all = T)
 
-for(i in 1:frame_num) {
+for(i in 0:frame_num) {
   x1 <- max(0, i*frame_len + 1)
   x2 <- min(i*frame_len+chunk_size,length(audio))
   #print(paste("i:",i,"From:",x1,"To:",x2, " = ", (x2-x1), " | ", length(audio[x1:x2]) ))
-  
-  frames[1:length(audio[x1:x2]), i] = audio[x1:x2]
+  #print(x2)
+  frames[i, 1:length(audio[x1:x2])] = audio[x1:x2]
 }
 
 audio_frames <- frames
-print(paste("Generated audio chunks:", paste0(dim(frames), collapse="x")))
-
+print(paste("Generated audio chunks:", paste0(dim(audio_frames), collapse="x")))
 
 # Explore hanning window
 hanning_window <- hanning.window(chunk_size)
 plot(hanning.window(chunk_size), type='l', col='black',  ylab='Hanning')
 
-
-audio_win = audio_frames * hanning_window
+audio_win <-  audio_frames * hanning_window
+audio_win[,1]
 
 graphics.off()
 par(mfrow = c(2,1))
-plot(audio_frames[,1], type = 'l',  main='Original', xlab = "",  ylab='')
-plot(audio_win[,1], type = 'l',  main='Windowed sequence', xlab = "",  ylab='')
+plot(audio_frames[69,], type = 'l',  main='Original', xlab = "",  ylab='')
+plot(audio_win[69,], type = 'l',  main='Windowed sequence', xlab = "",  ylab='')
 
 audio_win_t <- t(audio_win)
+audio_fft = matrix(0L, ncol = ncol(audio_win_t), nrow = (1 + as.integer(chunk_size/2)))
 
-audio_fft = matrix(0L, ncol = nrow(audio_win_t), nrow = (1 + as.integer(chunk_size/2)))
-
-dim(audio_win_t)
-dim(audio_fft)
-
-for (i in 0:(nrow(audio_win_t)) ) {
-  print(length(audio_win_t[,i]))
-  audio_fft[i ,] <- fft(audio_win_t[,i])
+for (i in 1:(ncol(audio_win_t)) ) {
+  audio_fft[, i] <- fft(audio_win_t[,i])[1:nrow(audio_fft)]
 }
 
 audio_power <- abs(audio_fft)^2
@@ -131,25 +121,42 @@ for (i in 1:nrow(filters) ) {
     plot(filters[i,], col=i, type = "l", ylab ='', xlab = '')
 }
 
-enorm <- 2.0 / mel_freqs[1:mel_filter_num+2] - mel_freqs[1:mel_filter_num]
+enorm <- 2.0 / (mel_freqs[1:mel_filter_num+2] - mel_freqs[1:mel_filter_num])
 
-new_filters =  filters * enorm
+new_filters <- filters * enorm
 
-new_filters[1,3]
+dev.off()
+plot(new_filters[1,], col='red', type = "l", ylab ='', xlab = '')
+for (i in 2:nrow(new_filters) ) {
+  par(new=TRUE)
+  lines(new_filters[i,], col=i, type = "l", ylab ='', xlab = '')
+}
+
+audio_log <- 10 * log10(new_filters %*% audio_power)
+audio_log[1, ]
+dim(audio_log)
+dim(new_filters)
+dim(t(audio_power))
+
+audio_power[, 1]
+
+dct_filter_num <- 40
+
+basis = matrix(0L, nrow = dct_filter_num, ncol = mel_filter_num)
+basis[1, ] = 1.0 / sqrt(mel_filter_num)
+
+samples <- seq(from = 1, to = mel_filter_num*2, by = 2) * pi / (2*mel_filter_num)
+
+for ( i in 1:(dct_filter_num-1)) {
+  basis[(i+1), ] <- cos(i * samples) * sqrt(2 / mel_filter_num)
+}
+
+cepstral_coefficents <- basis %*% audio_log
 
 graphics.off()
-for (i in 1:nrow(new_filters) ) {
-  par(new=TRUE)
-  plot(new_filters[,i], col=i, type = "l", ylab ='', xlab = '')
-}
-new_filters
+par(mar=c(0, 0, 0, 0))
+image(t(cepstral_coefficents), xlab = "", ylab = "", useRaster = F)
 
-a = 13
-b = 28
 
-a:b
-#13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28
 
-a+1:b
-#14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41
 
