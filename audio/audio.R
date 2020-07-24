@@ -6,7 +6,7 @@ setWavPlayer('/usr/bin/afplay')
 
 #target_path = "/Users/joseayerdis/Documents/repos/free-spoken-digit-dataset/recordings/" 
 target_path = "/Users/joseayerdis/Downloads/audio_train/" 
-wave <- readWave(paste0(target_path,"a439d172.wav"))
+wave <- readWave(paste0(target_path,"ff55a1e2.wav"))
 play(wave)
 
 
@@ -127,9 +127,11 @@ new_filters <- filters * enorm
 
 dev.off()
 plot(new_filters[1,], col='red', type = "l", ylab ='', xlab = '')
+
+colors <- rainbow(nrow(new_filters))
 for (i in 2:nrow(new_filters) ) {
   par(new=TRUE)
-  lines(new_filters[i,], col=i, type = "l", ylab ='', xlab = '')
+  lines(new_filters[i,], col=colors[i], type = "l", ylab ='', xlab = '')
 }
 
 audio_log <- 10 * log10(new_filters %*% audio_power)
