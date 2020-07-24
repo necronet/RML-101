@@ -35,8 +35,6 @@ dim(frames)
 for(i in 0:frame_num) {
   x1 <- max(0, i*frame_len + 1)
   x2 <- min(i*frame_len+chunk_size,length(audio))
-  #print(paste("i:",i,"From:",x1,"To:",x2, " = ", (x2-x1), " | ", length(audio[x1:x2]) ))
-  #print(x2)
   frames[i, 1:length(audio[x1:x2])] = audio[x1:x2]
 }
 
