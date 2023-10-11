@@ -46,11 +46,11 @@ for(i in 2:50000){
     x[i] = currentx        # otherwise "reject" move, and stay where we are
   }
   
-  # if(i %% 1000 == 0) {
-  #   dev.hold()
-  #   hist(x, main = paste0("MCMC Metropolis hasting algorithm, iteration: ",i))
-  #   ani.pause()
-  # }
+   if(i %% 1000 == 0) {
+     dev.hold()
+     hist(x, main = paste0("MCMC Metropolis hasting algorithm, iteration: ",i))
+     ani.pause()
+  }
 }
 }, img.name = "MCMC-metropolis-hasting", title = "MCMC Metropolis hasting algorithm", 
 description = "To approximate posterior with target as exponential distribution")

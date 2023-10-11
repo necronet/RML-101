@@ -3,7 +3,7 @@ library(ggplot2)
 set.seed(10052019)
 
 func <- function(x) {
-  x^3 + x^2
+  (x^3 + x^2)
 }
 
 m = 10^4
@@ -16,9 +16,3 @@ ggplot(data.frame(x,y), aes(x, y)) +
   geom_point(size = 0.5, alpha = 0.5, color = "red") + 
   geom_point(data = data.frame(x = s,y = y[y< func(x)]), 
              aes(x, y), size = 0.5, alpha = 0.5, color = "green") 
-
-
-
-
-
-
